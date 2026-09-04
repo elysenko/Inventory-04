@@ -46,7 +46,12 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
     try {
       const user = await this.prisma.user.create({
-        data: { email: dto.email, passwordHash, role: Role.clerk },
+        data: {
+          email: dto.email,
+          name: dto.name?.trim() || null,
+          passwordHash,
+          role: Role.clerk,
+        },
       });
       return this.issue(user);
     } catch (error) {
@@ -60,7 +65,7 @@ export class AuthService {
   async me(userId: string): Promise<AuthUser> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, role: true, createdAt: true },
+      select: { id: true, email: true, name: true, role: true, createdAt: true },
     });
     if (!user) throw new UnauthorizedException(INVALID_CREDENTIALS);
     return user;
@@ -69,6 +74,7 @@ export class AuthService {
   private issue(user: {
     id: string;
     email: string;
+    name?: string | null;
     role: Role;
     createdAt?: Date;
   }): AuthResponse {
@@ -82,6 +88,7 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
+        name: user.name ?? null,
         role: user.role,
         createdAt: user.createdAt,
       },

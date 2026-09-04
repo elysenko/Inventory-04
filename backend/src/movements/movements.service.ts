@@ -13,7 +13,7 @@ const INSUFFICIENT_STOCK = 'Insufficient stock';
 
 /** Relations the audit log exposes: actor email, item, and both endpoints. */
 const MOVEMENT_INCLUDE = {
-  user: { select: { email: true } },
+  user: { select: { email: true, name: true } },
   item: { select: { id: true, sku: true, name: true, unit: true } },
   fromLoc: { select: { id: true, name: true, zone: true } },
   toLoc: { select: { id: true, name: true, zone: true } },

@@ -18,3 +18,7 @@ yarn-error.log*
 # Editor / OS noise
 .DS_Store
 *.swp
+
+# TypeScript incremental build cache — a stale copy makes `nest build` emit
+# nothing while still exiting 0, leaving an empty dist/.
+*.tsbuildinfo

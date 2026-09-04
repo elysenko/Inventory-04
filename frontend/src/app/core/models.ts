@@ -6,6 +6,8 @@ export type MovementType = 'IN' | 'OUT' | 'TRANSFER';
 export interface User {
   id: string;
   email: string;
+  /** Display name captured at signup; absent for the seeded demo accounts. */
+  name?: string | null;
   role: Role;
   createdAt?: string;
 }
@@ -54,7 +56,7 @@ export interface Movement {
   qty: number;
   note?: string | null;
   userId: string;
-  user?: { email: string };
+  user?: { email: string; name?: string | null };
   createdAt: string;
 }
 

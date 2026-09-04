@@ -41,9 +41,16 @@ export class AuthService {
 
   /** Self-service accounts are always clerks — the server assigns the role and
    *  strips any `role` sent in the body, so nothing here can elevate itself. */
-  signup(email: string, password: string): Observable<AuthResponse> {
+  signup(email: string, password: string, name?: string): Observable<AuthResponse> {
+    const trimmedName = name?.trim();
     return this.api
-      .post<AuthResponse>('/auth/signup', { email: email.trim(), password })
+      .post<AuthResponse>('/auth/signup', {
+        email: email.trim(),
+        password,
+        // The form asks for a full name, so it is sent and stored rather than
+        // being collected and silently dropped.
+        ...(trimmedName ? { name: trimmedName } : {}),
+      })
       .pipe(tap((res) => this.accept(res)));
   }
 

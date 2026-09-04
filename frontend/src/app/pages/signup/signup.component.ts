@@ -40,7 +40,7 @@ export class SignupComponent {
       this.error.set('Choose a password of at least 8 characters.');
       return;
     }
-    this.submit(this.email(), this.password());
+    this.submit(this.email(), this.password(), this.name());
   }
 
   /** Signs in with the seeded clerk account instead of creating a new one. */
@@ -53,7 +53,7 @@ export class SignupComponent {
       .subscribe({ error: (err: unknown) => this.error.set(apiErrorMessage(err)) });
   }
 
-  private submit(email: string, password: string): void {
+  private submit(email: string, password: string, name?: string): void {
     if (this.submitting()) return;
     const trimmed = email.trim();
     if (!trimmed || !/^[^\s@]+@[^\s@]+$/.test(trimmed)) {
@@ -63,7 +63,7 @@ export class SignupComponent {
 
     this.submitting.set(true);
     this.auth
-      .signup(trimmed, password)
+      .signup(trimmed, password, name)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => this.submitting.set(false),
