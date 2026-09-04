@@ -1,0 +1,160 @@
+<div class="page" data-testid="item-detail-page">
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a routerLink="/items">Items</a>
+    <span aria-hidden="true">›</span>
+    <span>{{ item()?.sku ?? 'Item' }}</span>
+  </nav>
+
+  @if (item(); as detail) {
+    <header class="page-head">
+      <div>
+        <h1 class="page-head__title">{{ detail.name }}</h1>
+        <p class="page-head__sub">
+          <span class="mono">{{ detail.sku }}</span> · measured in {{ detail.unit }}
+        </p>
+      </div>
+      <div class="page-head__actions">
+        <a class="btn btn--secondary" [routerLink]="['/movements/new']" [queryParams]="{ itemId: detail.id }">Record movement</a>
+        @if (auth.isManager()) {
+          <a class="btn btn--secondary" [routerLink]="['/items', detail.id, 'edit']">Edit</a>
+          <button type="button" class="btn btn--danger" (click)="attemptDelete()">Delete</button>
+        }
+      </div>
+    </header>
+
+    @if (deleteError()) {
+      <div class="alert alert--danger" role="alert">
+        <div>
+          <p class="alert__title">Delete blocked</p>
+          <p class="alert__body">{{ deleteError() }}</p>
+        </div>
+        <button type="button" class="btn btn--ghost btn--sm" (click)="dismissDeleteError()">Dismiss</button>
+      </div>
+    }
+
+    @if (isLow()) {
+      <div class="alert alert--warn" role="status">
+        <div>
+          <p class="alert__title">At or below its reorder point</p>
+          <p class="alert__body">
+            {{ detail.totalQty }} {{ detail.unit }} on hand against a reorder point of {{ detail.reorderAt }} —
+            short by {{ shortfall() }}.
+          </p>
+        </div>
+      </div>
+    }
+
+    <div class="detail-grid">
+      <div class="stack">
+        <section class="card">
+          <div class="card__head"><h2 class="card__title">Stock by location</h2></div>
+          @if (stockLevels().length === 0) {
+            <div class="empty">
+              <p class="empty__title">No stock recorded</p>
+              <p class="empty__body">This item has never been received into a location.</p>
+            </div>
+          } @else {
+            <div class="table-wrap">
+              <table class="table" data-testid="stock-levels-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Location</th>
+                    <th scope="col">Zone</th>
+                    <th scope="col" class="num">Quantity</th>
+                    <th scope="col" class="num">Share</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (level of stockLevels(); track level.id) {
+                    <tr>
+                      <td class="cell-strong">{{ level.location?.name }}</td>
+                      <td class="cell-muted">{{ level.location?.zone }}</td>
+                      <td class="num cell-strong">{{ level.qty }}</td>
+                      <td class="num cell-muted">
+                        {{ detail.totalQty ? ((level.qty / (detail.totalQty || 1)) * 100 | number: '1.0-0') : 0 }}%
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="2" class="cell-strong">Total on hand</td>
+                    <td class="num cell-strong">{{ detail.totalQty }}</td>
+                    <td class="num cell-muted">100%</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          }
+        </section>
+
+        <section class="card">
+          <div class="card__head">
+            <h2 class="card__title">Recent movements</h2>
+            @if (auth.isManager()) {
+              <a class="btn btn--ghost btn--sm" [routerLink]="['/movements']" [queryParams]="{ itemId: detail.id }">
+                View full log
+              </a>
+            }
+          </div>
+          @if (itemMovements().length === 0) {
+            <div class="empty">
+              <p class="empty__title">No movements yet</p>
+              <p class="empty__body">Receipts, issues and transfers for this item will appear here.</p>
+            </div>
+          } @else {
+            <ul class="timeline">
+              @for (movement of itemMovements(); track movement.id) {
+                <li class="timeline__row">
+                  <span class="badge" [class.badge--in]="movement.type === 'IN'"
+                    [class.badge--out]="movement.type === 'OUT'"
+                    [class.badge--transfer]="movement.type === 'TRANSFER'">{{ movement.type }}</span>
+                  <span class="timeline__body">
+                    <strong>{{ movement.qty }} {{ detail.unit }}</strong>
+                    @if (movement.fromLoc) { <span class="cell-muted">from {{ movement.fromLoc.name }}</span> }
+                    @if (movement.toLoc) { <span class="cell-muted">to {{ movement.toLoc.name }}</span> }
+                    <span class="timeline__meta">{{ movement.user?.email }} · {{ movement.createdAt | date: 'd MMM y, HH:mm' }}</span>
+                    @if (movement.note) { <span class="timeline__note">“{{ movement.note }}”</span> }
+                  </span>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      </div>
+
+      <aside class="stack">
+        <section class="card card--pad">
+          <h2 class="card__title">Details</h2>
+          <dl class="dl detail-dl">
+            <div><dt class="dl__k">SKU</dt><dd class="dl__v mono">{{ detail.sku }}</dd></div>
+            <div><dt class="dl__k">Unit</dt><dd class="dl__v">{{ detail.unit }}</dd></div>
+            <div><dt class="dl__k">Reorder at</dt><dd class="dl__v">{{ detail.reorderAt }}</dd></div>
+            <div><dt class="dl__k">On hand</dt><dd class="dl__v">{{ detail.totalQty }}</dd></div>
+          </dl>
+          <p class="text-sm text-muted description">{{ detail.description }}</p>
+        </section>
+
+        <section class="card card--pad">
+          <h2 class="card__title">Status</h2>
+          @if (isLow()) {
+            <span class="badge badge--warn"><span class="badge__dot"></span> Reorder needed</span>
+            <p class="text-sm text-muted status-note">Appears on the manager low-stock report until the balance rises above {{ detail.reorderAt }}.</p>
+          } @else {
+            <span class="badge badge--ok"><span class="badge__dot"></span> In stock</span>
+            <p class="text-sm text-muted status-note">Comfortably above the reorder point of {{ detail.reorderAt }}.</p>
+          }
+        </section>
+      </aside>
+    </div>
+  } @else {
+    <div class="card">
+      <div class="empty">
+        <p class="empty__icon" aria-hidden="true">▤</p>
+        <p class="empty__title">Item not found</p>
+        <p class="empty__body">That item may have been removed from the catalog.</p>
+        <a class="btn btn--secondary" routerLink="/items">Back to items</a>
+      </div>
+    </div>
+  }
+</div>

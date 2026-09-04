@@ -1,0 +1,91 @@
+<div class="page page--narrow" data-testid="settings-page">
+  <header class="page-head">
+    <div>
+      <h1 class="page-head__title">System settings</h1>
+      <p class="page-head__sub">
+        Credentials for the backing services this deployment provisions. Values set here are stored server-side and
+        take precedence over unset environment variables.
+      </p>
+    </div>
+  </header>
+
+  @if (unconfigured().length > 0) {
+    <div class="alert alert--warn banner" role="status" data-testid="settings-unconfigured-banner">
+      <div>
+        <p class="alert__title">The following need credentials to activate: {{ unconfiguredNames() }}</p>
+        <p class="alert__body">
+          Until each value below is filled in, that service stays inactive and any feature depending on it is
+          unavailable.
+        </p>
+      </div>
+    </div>
+  }
+
+  <div class="stack">
+    @for (service of services(); track service.service) {
+      <section class="card">
+        <div class="card__head">
+          <div>
+            <h2 class="card__title">{{ service.label }}</h2>
+            <p class="text-sm text-muted service-desc">{{ service.description }}</p>
+          </div>
+          @if (service.configured) {
+            <span class="badge badge--ok"><span class="badge__dot"></span> Configured</span>
+          } @else {
+            <span class="badge badge--warn"><span class="badge__dot"></span> Needs credentials</span>
+          }
+        </div>
+
+        <div class="card__body">
+          @if (savedService() === service.service) {
+            <div class="alert alert--success" role="status">
+              <div>
+                <p class="alert__title">Saved</p>
+                <p class="alert__body">{{ service.label }} credentials were written to system settings.</p>
+              </div>
+            </div>
+          }
+
+          @for (setting of service.settings; track setting.key) {
+            <div class="field">
+              <label class="field__label" [attr.for]="'set-' + setting.key">
+                {{ setting.key }}
+                @if (setting.configured) {
+                  <span class="badge badge--muted key-state">set</span>
+                } @else {
+                  <span class="badge badge--warn key-state">unset</span>
+                }
+              </label>
+              <input
+                class="input"
+                type="password"
+                [id]="'set-' + setting.key"
+                [name]="setting.key"
+                [placeholder]="isPlaceholder(setting.maskedValue) ? 'Not configured' : setting.maskedValue"
+                [ngModel]="draftFor(setting.key)"
+                (ngModelChange)="setDraft(setting.key, $event)"
+                autocomplete="off"
+              />
+              <span class="field__hint">
+                @if (isPlaceholder(setting.maskedValue)) {
+                  No value yet — the service stays inactive until this is set.
+                } @else {
+                  Current value {{ setting.maskedValue }}. Leave blank to keep it.
+                }
+              </span>
+            </div>
+          }
+        </div>
+
+        <div class="card__foot">
+          <button type="button" class="btn btn--primary" (click)="save(service)">Save {{ service.label }}</button>
+        </div>
+      </section>
+    }
+  </div>
+
+  <p class="text-sm text-muted footnote">
+    Only managers can read or change these values. Stored credentials are never returned in full — the API responds
+    with a masked value and a configured flag.
+  </p>
+</div>

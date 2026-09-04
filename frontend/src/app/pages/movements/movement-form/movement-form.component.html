@@ -1,0 +1,145 @@
+<div class="page" data-testid="movement-form-page">
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a routerLink="/items">Items</a>
+    <span aria-hidden="true">›</span>
+    <span>Record movement</span>
+  </nav>
+
+  <header class="page-head">
+    <div>
+      <h1 class="page-head__title">Record movement</h1>
+      <p class="page-head__sub">
+        Receipts, issues and transfers are the only way stock changes. Every entry is written to the audit log
+        against your account.
+      </p>
+    </div>
+  </header>
+
+  @if (success()) {
+    <div class="alert alert--success" role="status" data-testid="movement-success">
+      <div>
+        <p class="alert__title">Movement recorded</p>
+        <p class="alert__body">{{ success() }}</p>
+      </div>
+    </div>
+  }
+
+  @if (error()) {
+    <div class="alert alert--danger" role="alert" data-testid="movement-error">
+      <div>
+        <p class="alert__title">Movement rejected</p>
+        <p class="alert__body">{{ error() }}</p>
+      </div>
+    </div>
+  }
+
+  <div class="move-grid">
+    <form class="card" data-testid="movement-form" (ngSubmit)="onSubmit()" novalidate>
+      <div class="card__body">
+        <div class="field">
+          <span class="field__label" id="type-label">Movement type</span>
+          <div class="segmented" role="radiogroup" aria-labelledby="type-label">
+            <label class="segmented__opt" [class.is-active]="type() === 'IN'">
+              <input type="radio" name="type" value="IN" data-testid="movement-type-IN" [checked]="type() === 'IN'" (change)="setType('IN')" />
+              IN
+              <small>Receive</small>
+            </label>
+            <label class="segmented__opt" [class.is-active]="type() === 'OUT'">
+              <input type="radio" name="type" value="OUT" data-testid="movement-type-OUT" [checked]="type() === 'OUT'" (change)="setType('OUT')" />
+              OUT
+              <small>Issue</small>
+            </label>
+            <label class="segmented__opt" [class.is-active]="type() === 'TRANSFER'">
+              <input type="radio" name="type" value="TRANSFER" data-testid="movement-type-TRANSFER" [checked]="type() === 'TRANSFER'" (change)="setType('TRANSFER')" />
+              TRANSFER
+              <small>Move between zones</small>
+            </label>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="mv-item">Item</label>
+          <select id="mv-item" data-testid="movement-item" name="itemId" class="select" [value]="itemId()" (change)="setItem($any($event.target).value)">
+            @for (item of items(); track item.id) {
+              <option [value]="item.id" [selected]="item.id === itemId()">{{ item.sku }} — {{ item.name }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="field-grid">
+          @if (needsFrom()) {
+            <div class="field">
+              <label class="field__label" for="mv-from">From location</label>
+              <select id="mv-from" name="fromLocId" class="select" [ngModel]="fromLocId()" (ngModelChange)="setFrom($event)">
+                @for (location of locations(); track location.id) {
+                  <option [value]="location.id">{{ location.name }}</option>
+                }
+              </select>
+              <span class="field__hint">
+                {{ available() }} {{ selectedItem()?.unit }} on hand here.
+              </span>
+            </div>
+          }
+
+          @if (needsTo()) {
+            <div class="field">
+              <label class="field__label" for="mv-to">To location</label>
+              <select id="mv-to" name="toLocId" class="select" [ngModel]="toLocId()" (ngModelChange)="setTo($event)">
+                @for (location of locations(); track location.id) {
+                  <option [value]="location.id">{{ location.name }}</option>
+                }
+              </select>
+              <span class="field__hint">Where the stock ends up.</span>
+            </div>
+          }
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="mv-qty">Quantity</label>
+          <input id="mv-qty" data-testid="movement-qty" name="qty" type="number" min="1" step="1" class="input"
+            [class.input--invalid]="!!error()" [ngModel]="qty()" (ngModelChange)="qty.set(+$event)" />
+          <span class="field__hint">Whole {{ selectedItem()?.unit }} only. Issues can never take a balance below zero.</span>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="mv-note">Note</label>
+          <textarea id="mv-note" name="note" class="textarea" placeholder="Purchase order, work order, or why the stock moved…"
+            [ngModel]="note()" (ngModelChange)="note.set($event)"></textarea>
+        </div>
+      </div>
+
+      <div class="card__foot">
+        <a class="btn btn--secondary" routerLink="/items">Cancel</a>
+        <button type="submit" class="btn btn--primary" data-testid="movement-submit">Record {{ type() }}</button>
+      </div>
+    </form>
+
+    <aside class="stack">
+      <section class="card card--pad">
+        <h2 class="card__title">{{ selectedItem()?.sku }} on hand</h2>
+        <p class="text-sm text-muted">Current balance in every location.</p>
+        <ul class="balances">
+          @for (row of itemBreakdown(); track row.location.id) {
+            <li class="balances__row">
+              <span>{{ row.location.name }}</span>
+              <strong [class.balances__zero]="row.qty === 0">{{ row.qty }}</strong>
+            </li>
+          }
+          <li class="balances__row balances__row--total">
+            <span>Total</span>
+            <strong>{{ selectedItem()?.totalQty }}</strong>
+          </li>
+        </ul>
+      </section>
+
+      <section class="card card--pad">
+        <h2 class="card__title">How each type behaves</h2>
+        <ul class="rules">
+          <li><span class="badge badge--in">IN</span> adds to a destination. No source location.</li>
+          <li><span class="badge badge--out">OUT</span> subtracts from a source, refused if the balance would go negative.</li>
+          <li><span class="badge badge--transfer">TRANSFER</span> moves between two different zones; the total never changes.</li>
+        </ul>
+      </section>
+    </aside>
+  </div>
+</div>

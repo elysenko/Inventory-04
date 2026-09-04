@@ -1,0 +1,87 @@
+<div class="page page--narrow">
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a routerLink="/items">Items</a>
+    <span aria-hidden="true">›</span>
+    <span>{{ heading() }}</span>
+  </nav>
+
+  <header class="page-head">
+    <div>
+      <h1 class="page-head__title">{{ heading() }}</h1>
+      <p class="page-head__sub">
+        Catalog changes are restricted to managers. Quantities are never edited here — they only move through
+        recorded movements.
+      </p>
+    </div>
+  </header>
+
+  @if (formError()) {
+    <div class="alert alert--danger" role="alert">
+      <div>
+        <p class="alert__title">Check the form</p>
+        <p class="alert__body">{{ formError() }}</p>
+      </div>
+    </div>
+  }
+
+  <form class="card" data-testid="item-form" (ngSubmit)="onSubmit()" novalidate>
+    <div class="card__body">
+      <div class="field-grid">
+        <div class="field">
+          <label class="field__label" for="sku">SKU <span class="field__req" aria-hidden="true">*</span></label>
+          <input
+            id="sku"
+            name="sku"
+            class="input"
+            [class.input--invalid]="!!skuError()"
+            placeholder="BLT-M8-50"
+            [ngModel]="sku()"
+            (ngModelChange)="sku.set($event)"
+            [attr.aria-invalid]="!!skuError()"
+          />
+          @if (skuError()) {
+            <span class="field__error" data-testid="item-sku-error">{{ skuError() }} — pick a different code.</span>
+          } @else {
+            <span class="field__hint">Unique across the catalog.</span>
+          }
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="unit">Unit of measure</label>
+          <select id="unit" name="unit" class="select" [ngModel]="unit()" (ngModelChange)="unit.set($event)">
+            @for (u of units(); track u) {
+              <option [value]="u">{{ u }}</option>
+            }
+          </select>
+          <span class="field__hint">How this line is counted and issued.</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="name">Name <span class="field__req" aria-hidden="true">*</span></label>
+        <input id="name" name="name" class="input" placeholder="Hex Bolt M8 × 50mm"
+          [ngModel]="name()" (ngModelChange)="name.set($event)" />
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="description">Description</label>
+        <textarea id="description" name="description" class="textarea" placeholder="Anything a picker should know…"
+          [ngModel]="description()" (ngModelChange)="description.set($event)"></textarea>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="reorderAt">Reorder point</label>
+        <input id="reorderAt" name="reorderAt" type="number" min="0" class="input"
+          [ngModel]="reorderAt()" (ngModelChange)="reorderAt.set(+$event)" />
+        <span class="field__hint">
+          The item lands on the low-stock report once total on-hand quantity falls to this number or below.
+        </span>
+      </div>
+    </div>
+
+    <div class="card__foot">
+      <button type="button" class="btn btn--secondary" (click)="cancel()">Cancel</button>
+      <button type="submit" class="btn btn--primary">{{ isEdit() ? 'Save changes' : 'Create item' }}</button>
+    </div>
+  </form>
+</div>

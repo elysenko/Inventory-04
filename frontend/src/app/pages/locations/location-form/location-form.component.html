@@ -1,0 +1,41 @@
+<div class="page page--narrow">
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a routerLink="/locations">Locations</a>
+    <span aria-hidden="true">›</span>
+    <span>{{ heading() }}</span>
+  </nav>
+
+  <header class="page-head">
+    <div>
+      <h1 class="page-head__title">{{ heading() }}</h1>
+      <p class="page-head__sub">Locations are the physical zones stock is held in. Names must be unique.</p>
+    </div>
+  </header>
+
+  <form class="card" data-testid="location-form" (ngSubmit)="onSubmit()" novalidate>
+    <div class="card__body">
+      <div class="field">
+        <label class="field__label" for="loc-name">Name <span class="field__req" aria-hidden="true">*</span></label>
+        <input id="loc-name" name="name" class="input" [class.input--invalid]="!!nameError()" placeholder="Zone D"
+          [ngModel]="name()" (ngModelChange)="name.set($event)" [attr.aria-invalid]="!!nameError()" />
+        @if (nameError()) {
+          <span class="field__error">{{ nameError() }}</span>
+        } @else {
+          <span class="field__hint">Shown in movement forms and the audit log.</span>
+        }
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="loc-zone">Zone code</label>
+        <input id="loc-zone" name="zone" class="input" placeholder="D" maxlength="8"
+          [ngModel]="zone()" (ngModelChange)="zone.set($event)" />
+        <span class="field__hint">Short code used on shelf labels and pick lists.</span>
+      </div>
+    </div>
+
+    <div class="card__foot">
+      <button type="button" class="btn btn--secondary" (click)="cancel()">Cancel</button>
+      <button type="submit" class="btn btn--primary">{{ isEdit() ? 'Save changes' : 'Create location' }}</button>
+    </div>
+  </form>
+</div>

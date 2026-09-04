@@ -1,0 +1,71 @@
+<div class="page" data-testid="locations-page">
+  <header class="page-head">
+    <div>
+      <h1 class="page-head__title">Locations</h1>
+      <p class="page-head__sub">Storage zones stock can be received into, issued from, and transferred between.</p>
+    </div>
+    <div class="page-head__actions">
+      <a class="btn btn--primary" routerLink="/locations/new">New location</a>
+    </div>
+  </header>
+
+  @if (deleteError()) {
+    <div class="alert alert--danger" role="alert" data-testid="location-delete-error">
+      <div>
+        <p class="alert__title">Delete blocked</p>
+        <p class="alert__body">{{ deleteError() }}</p>
+      </div>
+      <button type="button" class="btn btn--ghost btn--sm" (click)="dismissError()">Dismiss</button>
+    </div>
+  }
+
+  <section class="card">
+    <div class="card__head">
+      <h2 class="card__title">{{ locations().length }} locations</h2>
+      <span class="text-sm text-muted">{{ totalQty() }} units stored</span>
+    </div>
+
+    @if (loading()) {
+      <div class="card__body stack" aria-busy="true">
+        @for (row of [1, 2, 3]; track row) { <div class="skeleton"></div> }
+      </div>
+    } @else if (locations().length === 0) {
+      <div class="empty">
+        <p class="empty__icon" aria-hidden="true">⌖</p>
+        <p class="empty__title">No locations yet</p>
+        <p class="empty__body">Create at least one location before receiving stock — movements always name a zone.</p>
+        <a class="btn btn--primary" routerLink="/locations/new">Create the first location</a>
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table class="table" data-testid="locations-table">
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Zone</th>
+              <th scope="col" class="num">Items held</th>
+              <th scope="col" class="num">Units on hand</th>
+              <th scope="col"><span class="visually-hidden">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (location of locations(); track location.id) {
+              <tr>
+                <td class="cell-strong">{{ location.name }}</td>
+                <td><span class="badge badge--muted">{{ location.zone }}</span></td>
+                <td class="num cell-muted">{{ location.itemCount }}</td>
+                <td class="num cell-strong">{{ location.totalQty }}</td>
+                <td>
+                  <div class="row-actions">
+                    <a class="btn btn--secondary btn--sm" [routerLink]="['/locations', location.id, 'edit']">Edit</a>
+                    <button type="button" class="btn btn--danger btn--sm" (click)="attemptDelete(location)">Delete</button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</div>

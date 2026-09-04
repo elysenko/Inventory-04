@@ -1,0 +1,2 @@
+/* Shares the global .auth* design-system classes with /login. */
+:host { display: block; }

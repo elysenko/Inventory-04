@@ -1,0 +1,7 @@
+:host { display: block; }
+.page--narrow { max-width: 780px; }
+.banner { border-left-width: 5px; }
+.service-desc { margin: var(--space-1) 0 0; max-width: 54ch; }
+.card__head { align-items: flex-start; }
+.key-state { margin-left: var(--space-2); text-transform: uppercase; letter-spacing: 0.04em; }
+.footnote { margin-top: var(--space-5); }

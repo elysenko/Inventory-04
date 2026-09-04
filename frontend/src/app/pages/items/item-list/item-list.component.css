@@ -1,0 +1,10 @@
+:host { display: block; }
+.stats { margin-bottom: var(--space-5); grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.inline-link { color: var(--color-primary-strong); font-weight: 650; }
+.inline-link:hover { text-decoration: underline; }
+.table .row-link + .cell-muted { display: block; }
+
+@media (max-width: 768px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+  .stats .stat__value { font-size: var(--text-xl); }
+}

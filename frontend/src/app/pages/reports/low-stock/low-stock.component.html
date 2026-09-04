@@ -1,0 +1,110 @@
+<div class="page" data-testid="low-stock-page">
+  <header class="page-head">
+    <div>
+      <h1 class="page-head__title">Low stock</h1>
+      <p class="page-head__sub">
+        Items whose total on-hand quantity has fallen to or below their reorder point, largest shortfall first.
+      </p>
+    </div>
+    <div class="page-head__actions">
+      <a class="btn btn--secondary" routerLink="/items" [queryParams]="{ lowStock: 'true' }">Open in catalog</a>
+      <a class="btn btn--primary" routerLink="/movements/new" [queryParams]="{ type: 'IN' }">Record receipt</a>
+    </div>
+  </header>
+
+  <section class="grid stats" aria-label="Report summary">
+    <div class="stat" [class.stat--warn]="rows().length > 0">
+      <p class="stat__label">Items needing attention</p>
+      <p class="stat__value">{{ rows().length }}</p>
+      <p class="stat__hint">at or below reorder point</p>
+    </div>
+    <div class="stat">
+      <p class="stat__label">Total shortfall</p>
+      <p class="stat__value">{{ totalShortfall() }}</p>
+      <p class="stat__hint">units to reach every reorder point</p>
+    </div>
+    <div class="stat" [class.stat--danger]="atZero() > 0">
+      <p class="stat__label">Out of stock</p>
+      <p class="stat__value">{{ atZero() }}</p>
+      <p class="stat__hint">nothing on hand anywhere</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head">
+      <h2 class="card__title">Reorder list</h2>
+      <span class="text-sm text-muted">Ordered by shortfall</span>
+    </div>
+
+    @if (loading()) {
+      <div class="card__body stack" aria-busy="true">
+        @for (row of [1, 2, 3]; track row) { <div class="skeleton"></div> }
+      </div>
+    } @else if (error()) {
+      <div class="card__body">
+        <div class="alert alert--danger" role="alert">
+          <div>
+            <p class="alert__title">Could not load the report</p>
+            <p class="alert__body">{{ error() }}</p>
+          </div>
+        </div>
+      </div>
+    } @else if (sorted().length === 0) {
+      <div class="empty">
+        <p class="empty__icon" aria-hidden="true">✓</p>
+        <p class="empty__title" data-testid="low-stock-empty">Everything is above its reorder point</p>
+        <p class="empty__body">
+          No item has fallen to or below its threshold. Items appear here automatically as stock is issued.
+        </p>
+        <a class="btn btn--secondary" routerLink="/items">Back to the catalog</a>
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table class="table" data-testid="low-stock-table">
+          <thead>
+            <tr>
+              <th scope="col">SKU</th>
+              <th scope="col">Item</th>
+              <th scope="col" class="num">On hand</th>
+              <th scope="col" class="num">Reorder at</th>
+              <th scope="col" class="num">Shortfall</th>
+              <th scope="col">Coverage</th>
+              <th scope="col"><span class="visually-hidden">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of sorted(); track row.item.id) {
+              <tr class="is-low" [attr.data-testid]="'low-stock-row-' + row.item.id">
+                <td><span class="mono">{{ row.item.sku }}</span></td>
+                <td>
+                  <a class="row-link" [routerLink]="['/items', row.item.id]">{{ row.item.name }}</a>
+                  <span class="cell-muted text-xs">measured in {{ row.item.unit }}</span>
+                </td>
+                <td class="num cell-strong">{{ row.totalQty }}</td>
+                <td class="num cell-muted">{{ row.reorderAt }}</td>
+                <td class="num">
+                  @if (row.shortfall > 0) {
+                    <strong class="shortfall">{{ row.shortfall }}</strong>
+                  } @else {
+                    <span class="cell-muted">0</span>
+                  }
+                </td>
+                <td>
+                  <span class="meter" [attr.aria-label]="fillPercent(row) + '% of reorder point'">
+                    <span class="meter__fill" [class.meter__fill--critical]="severity(row) === 'critical'"
+                      [style.width.%]="fillPercent(row)"></span>
+                  </span>
+                  <span class="cell-muted text-xs">{{ fillPercent(row) }}% of threshold</span>
+                </td>
+                <td>
+                  <a class="btn btn--secondary btn--sm" routerLink="/movements/new"
+                    [queryParams]="{ itemId: row.item.id, type: 'IN' }">Receive</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</div>

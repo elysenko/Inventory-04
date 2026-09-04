@@ -2,9 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>App</title>
+    <title>StockRoom</title>
     <base href="/" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script>
+      /* Static previews are served from a sub-path (/<mockup_id>/) while the
+         production build is served from the root. If the build's base href is
+         still "/" but the document lives under an id-like first segment, rewrite
+         the base tag here — before Angular's relative <script> tags are parsed —
+         so both assets and router URLs resolve correctly. */
+      (function () {
+        var base = document.querySelector('base');
+        if (!base || base.getAttribute('href') !== '/') return;
+        var seg = location.pathname.split('/')[1] || '';
+        if (/^[0-9a-f]{8}(-[0-9a-f]{4}){0,4}/i.test(seg) || /^[0-9a-f]{12,}$/i.test(seg)) {
+          base.setAttribute('href', '/' + seg + '/');
+        }
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content="StockRoom — warehouse inventory, stock movements and low-stock reporting." />
+    <meta name="theme-color" content="#131a26" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
   </head>
   <body>

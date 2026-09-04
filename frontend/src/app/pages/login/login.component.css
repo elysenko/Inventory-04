@@ -1,0 +1,3 @@
+/* Layout for the auth screens lives in the global stylesheet (.auth*, .brand-*,
+   .demo, .skip) so /login and /signup stay visually identical. */
+:host { display: block; }

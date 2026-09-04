@@ -1,0 +1,116 @@
+<div class="page" data-testid="movement-log-page">
+  <header class="page-head">
+    <div>
+      <h1 class="page-head__title">Movement log</h1>
+      <p class="page-head__sub">
+        Every receipt, issue and transfer, newest first. Entries are append-only — corrections are recorded as new
+        movements so the trail stays intact.
+      </p>
+    </div>
+    <div class="page-head__actions">
+      <a class="btn btn--primary" routerLink="/movements/new">Record movement</a>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="toolbar">
+      <div class="field">
+        <label class="field__label" for="f-item">Item</label>
+        <select id="f-item" data-testid="movement-filter-item" class="select" [value]="itemFilter()" (change)="setFilter('itemId', $any($event.target).value)">
+          <option value="">All items</option>
+          @for (item of items(); track item.id) {
+            <option [value]="item.id" [selected]="item.id === itemFilter()">{{ item.sku }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="f-type">Type</label>
+        <select id="f-type" data-testid="movement-filter-type" class="select" [value]="typeFilter()" (change)="setFilter('type', $any($event.target).value)">
+          <option value="">All types</option>
+          @for (type of movementTypes; track type) {
+            <option [value]="type" [selected]="type === typeFilter()">{{ type }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="f-from">From date</label>
+        <input id="f-from" type="date" class="input" [value]="fromFilter()" (change)="setFilter('from', $any($event.target).value)" />
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="f-to">To date</label>
+        <input id="f-to" type="date" class="input" [value]="toFilter()" (change)="setFilter('to', $any($event.target).value)" />
+      </div>
+
+      @if (hasFilters()) {
+        <button type="button" class="btn btn--ghost btn--sm" (click)="clearFilters()">Clear filters</button>
+      }
+    </div>
+
+    @if (hasFilters()) {
+      <p class="filter-note">Filters are held in the URL — this view can be bookmarked or shared as-is.</p>
+    }
+
+    @if (loading()) {
+      <div class="card__body stack" aria-busy="true">
+        @for (row of [1, 2, 3, 4, 5, 6]; track row) { <div class="skeleton"></div> }
+      </div>
+    } @else if (rows().length === 0) {
+      <div class="empty">
+        <p class="empty__icon" aria-hidden="true">≡</p>
+        <p class="empty__title" data-testid="movement-log-empty">No movements match these filters</p>
+        <p class="empty__body">Widen the date range or clear the item and type filters to see the full history.</p>
+        <button type="button" class="btn btn--secondary" (click)="clearFilters()">Clear filters</button>
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table class="table" data-testid="movement-log-table">
+          <thead>
+            <tr>
+              <th scope="col">When</th>
+              <th scope="col">Actor</th>
+              <th scope="col">Item</th>
+              <th scope="col">Type</th>
+              <th scope="col" class="num">Qty</th>
+              <th scope="col">From → To</th>
+              <th scope="col">Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (movement of rows(); track movement.id) {
+              <tr [attr.data-testid]="'movement-row-' + movement.id">
+                <td class="cell-muted nowrap">{{ movement.createdAt | date: 'd MMM y, HH:mm' }}</td>
+                <td class="cell-muted">{{ movement.user?.email }}</td>
+                <td>
+                  <a class="row-link" [routerLink]="['/items', movement.itemId]">{{ movement.item?.sku }}</a>
+                  <span class="cell-muted text-xs">{{ movement.item?.name }}</span>
+                </td>
+                <td><span [class]="typeClass(movement.type)">{{ movement.type }}</span></td>
+                <td class="num cell-strong">{{ movement.qty }}</td>
+                <td class="cell-muted nowrap">
+                  {{ movement.fromLoc?.name ?? '—' }} → {{ movement.toLoc?.name ?? '—' }}
+                </td>
+                <td class="cell-muted note">{{ movement.note }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pager">
+        <span>Showing {{ rangeStart() }}–{{ rangeEnd() }} of {{ total() }}</span>
+        <div class="row">
+          <button type="button" class="btn btn--secondary btn--sm" [disabled]="page() <= 1" (click)="goToPage(page() - 1)">
+            Previous
+          </button>
+          <span class="text-sm">Page {{ page() }} of {{ pageCount() }}</span>
+          <button type="button" class="btn btn--secondary btn--sm" [disabled]="page() >= pageCount()" (click)="goToPage(page() + 1)">
+            Next
+          </button>
+        </div>
+      </div>
+    }
+  </section>
+</div>

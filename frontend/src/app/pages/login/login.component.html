@@ -1,0 +1,91 @@
+<div class="auth">
+  <!-- Brand panel: renders the literal brand string on the unauthenticated view. -->
+  <section class="auth__brand">
+    <div class="auth__brand-inner">
+      <span class="brand-mark" aria-hidden="true">SR</span>
+      <h1 class="brand-name" data-testid="brand">StockRoom</h1>
+      <p class="brand-tag">Warehouse inventory, stock movements and low-stock reporting — one shared source of truth.</p>
+
+      <ul class="brand-points">
+        <li><span class="brand-points__dot" aria-hidden="true"></span> Track on-hand quantity per item, per location</li>
+        <li><span class="brand-points__dot" aria-hidden="true"></span> Record receipts, issues and transfers atomically</li>
+        <li><span class="brand-points__dot" aria-hidden="true"></span> Never let a balance go negative</li>
+        <li><span class="brand-points__dot" aria-hidden="true"></span> Audit every movement — who, what, when</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Sign-in panel -->
+  <section class="auth__panel">
+    <div class="auth__card">
+      <h2 class="auth__title">Sign in to StockRoom</h2>
+      <p class="auth__sub">Use a demo account below, or your own credentials.</p>
+
+      @if (error()) {
+        <div class="alert alert--danger" role="alert" data-testid="login-error">
+          <div>
+            <p class="alert__title">Could not sign in</p>
+            <p class="alert__body">{{ error() }}</p>
+          </div>
+        </div>
+      }
+
+      <form data-testid="login-form" (ngSubmit)="onSubmit()" novalidate>
+        <div class="field">
+          <label class="field__label" for="email">Email</label>
+          <input
+            id="email"
+            data-testid="login-email"
+            name="email"
+            type="email"
+            class="input"
+            [class.input--invalid]="!!error()"
+            autocomplete="username"
+            placeholder="you@warehouse.example"
+            [ngModel]="email()"
+            (ngModelChange)="email.set($event)"
+          />
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="password">Password</label>
+          <input
+            id="password"
+            data-testid="login-password"
+            name="password"
+            type="password"
+            class="input"
+            [class.input--invalid]="!!error()"
+            autocomplete="current-password"
+            placeholder="••••••••"
+            [ngModel]="password()"
+            (ngModelChange)="password.set($event)"
+          />
+        </div>
+
+        <button type="submit" class="btn btn--primary btn--block" data-testid="login-submit" [disabled]="submitting()">Sign in</button>
+      </form>
+
+      <div class="auth__divider"><span>demo accounts</span></div>
+
+      <div class="demo-list">
+        @for (account of demoAccounts; track account.email) {
+          <button type="button" class="demo" (click)="useAccount(account.email, account.password)">
+            <span class="demo__top">
+              <span class="demo__email">{{ account.email }}</span>
+              <span class="badge badge--role">{{ account.role }}</span>
+            </span>
+            <span class="demo__label">{{ account.label }}</span>
+          </button>
+        }
+      </div>
+
+      <div class="auth__foot">
+        <p class="text-sm text-muted">
+          No account yet? <a class="link" routerLink="/signup">Create one</a> — new sign-ups join as clerks.
+        </p>
+        <button type="button" class="skip" data-testid="login-demo" (click)="skipLogin('manager')">Skip login — Demo Mode</button>
+      </div>
+    </div>
+  </section>
+</div>

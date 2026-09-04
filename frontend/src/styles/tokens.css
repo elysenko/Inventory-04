@@ -1,0 +1,90 @@
+/**
+ * StockRoom design tokens — single source of truth for the visual language.
+ * Every component must reference these via var(--token); never hard-code a
+ * hex, rgb() or named colour in a component stylesheet.
+ */
+:root {
+  /* ---- Brand ------------------------------------------------------- */
+  --brand-ink: #131a26;
+  --brand-ink-soft: #1d2637;
+  --brand-ink-line: #2b3648;
+  --brand-on-ink: #eef1f6;
+  --brand-on-ink-muted: #97a3b6;
+
+  /* ---- Primary (hi-vis warehouse amber) ---------------------------- */
+  --color-primary: #e07c24;
+  --color-primary-strong: #c2620f;
+  --color-primary-soft: #fdf1e6;
+  --color-primary-border: #f6d2ac;
+  --color-on-primary: #ffffff;
+
+  /* ---- Neutrals ---------------------------------------------------- */
+  --color-bg: #f5f6f8;
+  --color-surface: #ffffff;
+  --color-surface-alt: #fafbfc;
+  --color-border: #e2e6ec;
+  --color-border-strong: #cbd2dc;
+  --color-text: #101828;
+  --color-text-muted: #667085;
+  --color-text-faint: #98a2b3;
+
+  /* ---- Semantic ---------------------------------------------------- */
+  --color-success: #0b8a5b;
+  --color-success-soft: #e6f5ee;
+  --color-success-border: #a9ddc5;
+  --color-warn: #b25e09;
+  --color-warn-soft: #fdf3e4;
+  --color-warn-border: #f0cfa1;
+  --color-danger: #c0261c;
+  --color-danger-soft: #fdecea;
+  --color-danger-border: #f3bdb8;
+  --color-info: #1755c4;
+  --color-info-soft: #eaf0fd;
+  --color-info-border: #bcd0f4;
+
+  /* ---- Focus ------------------------------------------------------- */
+  --color-focus-ring: rgba(224, 124, 36, 0.35);
+
+  /* ---- Radii ------------------------------------------------------- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  /* ---- Spacing ----------------------------------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* ---- Typography -------------------------------------------------- */
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-md: 17px;
+  --text-lg: 20px;
+  --text-xl: 26px;
+  --text-2xl: 32px;
+
+  /* ---- Elevation --------------------------------------------------- */
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.09), 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-md: 0 6px 16px rgba(16, 24, 40, 0.09);
+  --shadow-lg: 0 18px 40px rgba(16, 24, 40, 0.16);
+
+  /* ---- Layout ------------------------------------------------------ */
+  --sidebar-width: 258px;
+  --topbar-height: 60px;
+  --tabbar-height: 60px;
+  --content-max: 1180px;
+
+  /* ---- Motion ------------------------------------------------------ */
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur-mid: 200ms;
+}

@@ -1,0 +1,75 @@
+<div class="auth">
+  <section class="auth__brand">
+    <div class="auth__brand-inner">
+      <span class="brand-mark" aria-hidden="true">SR</span>
+      <h1 class="brand-name" data-testid="brand">StockRoom</h1>
+      <p class="brand-tag">Create a clerk account to browse the catalog and record stock movements from the floor.</p>
+
+      <ul class="brand-points">
+        <li><span class="brand-points__dot" aria-hidden="true"></span> Browse every item and its on-hand quantity</li>
+        <li><span class="brand-points__dot" aria-hidden="true"></span> Record receipts, issues and transfers</li>
+        <li><span class="brand-points__dot" aria-hidden="true"></span> Catalog and location changes stay with managers</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="auth__panel">
+    <div class="auth__card">
+      <h2 class="auth__title">Create your account</h2>
+      <p class="auth__sub">Takes a moment — you can start recording movements straight away.</p>
+
+      <div class="alert alert--info">
+        <div>
+          <p class="alert__title">New accounts join as clerks</p>
+          <p class="alert__body">
+            Clerks can view the catalog and record movements. Managing items, locations, reports and the audit log
+            requires a manager, which an existing manager grants.
+          </p>
+        </div>
+      </div>
+
+      @if (error()) {
+        <div class="alert alert--danger" role="alert">
+          <div>
+            <p class="alert__title">Check the form</p>
+            <p class="alert__body">{{ error() }}</p>
+          </div>
+        </div>
+      }
+
+      <form data-testid="signup-form" (ngSubmit)="onSubmit()" novalidate>
+        <div class="field">
+          <label class="field__label" for="name">Full name</label>
+          <input id="name" name="name" type="text" class="input" autocomplete="name" placeholder="Sam Rivera"
+            [ngModel]="name()" (ngModelChange)="name.set($event)" />
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="su-email">Work email</label>
+          <input id="su-email" name="email" type="email" class="input" autocomplete="email"
+            placeholder="sam@warehouse.example" [ngModel]="email()" (ngModelChange)="email.set($event)" />
+        </div>
+
+        <div class="field-grid">
+          <div class="field">
+            <label class="field__label" for="su-password">Password</label>
+            <input id="su-password" name="password" type="password" class="input" autocomplete="new-password"
+              placeholder="At least 8 characters" [ngModel]="password()" (ngModelChange)="password.set($event)" />
+          </div>
+          <div class="field">
+            <label class="field__label" for="su-confirm">Confirm password</label>
+            <input id="su-confirm" name="confirm" type="password" class="input" autocomplete="new-password"
+              placeholder="Repeat it" [ngModel]="confirm()" (ngModelChange)="confirm.set($event)" />
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn--primary btn--block" data-testid="signup-submit">Create clerk account</button>
+      </form>
+
+      <div class="auth__foot">
+        <p class="text-sm text-muted">Already have an account? <a class="link" routerLink="/login">Sign in</a></p>
+        <button type="button" class="skip" (click)="skipSignup()">Skip signup — explore as a clerk</button>
+      </div>
+    </div>
+  </section>
+</div>
