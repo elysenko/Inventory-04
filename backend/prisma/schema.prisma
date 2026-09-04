@@ -7,6 +7,10 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Production pods are ARM64 on OpenSSL 3.0.x while the build host may be x86_64
+  // on either OpenSSL line. Every target the image could resolve to is listed, so
+  // the query engine is always present and NestJS cannot crash-loop at startup.
+  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "linux-arm64-openssl-1.1.x", "linux-arm64-openssl-3.0.x"]
 }
 
 datasource db {
