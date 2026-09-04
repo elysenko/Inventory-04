@@ -1,0 +1,26 @@
+# deploy/values-postgresql.yaml
+# Bitnami PostgreSQL Helm chart values for StockRoom.
+#
+# NOTE: this instance is ALREADY provisioned and Running as release `postgres`
+# in namespace `colossus-inventory-04`. The credentials below are the live ones
+# — they are recorded here so a re-deploy reproduces the running instance rather
+# than rotating the password out from under the app.
+#
+#   helm upgrade --install postgres bitnami/postgresql \
+#     -f deploy/values-postgresql.yaml -n colossus-inventory-04
+
+auth:
+  postgresPassword: "CyO0yU8vCNPp9L-aTsC1FPcM"
+  database: app
+
+primary:
+  persistence:
+    size: 5Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

@@ -1,3 +1,10 @@
+// StockRoom — inventory management data model.
+//
+// Field names mirror frontend/src/app/core/models.ts exactly (the approved UI
+// contract): Item.reorderAt, StockLevel.qty, Movement.fromLocId/toLocId, etc.
+// Item.totalQty is intentionally NOT stored — it is always derived server-side
+// from SUM(stockLevels.qty) so a movement can never desynchronise it.
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,16 +14,119 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String?
-  role      Role     @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+/// Domain roles. Lowercase to match the UI's `Role = 'clerk' | 'manager'` union
+/// and the JWT claim the Angular AuthService validates.
+enum Role {
+  clerk
+  manager
 }
 
-enum Role {
-  USER
-  ADMIN
+enum MovementType {
+  IN
+  OUT
+  TRANSFER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  /// Self-service signup always creates a clerk; managers are seeded/promoted.
+  role         Role     @default(clerk)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  movements Movement[]
+
+  @@map("users")
+}
+
+model Item {
+  id          String   @id @default(cuid())
+  sku         String   @unique
+  name        String
+  description String?
+  unit        String
+  /// Low-stock threshold: reported when SUM(stockLevels.qty) <= reorderAt.
+  reorderAt   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stockLevels StockLevel[]
+  movements   Movement[]
+
+  @@index([name])
+  @@map("items")
+}
+
+model Location {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  zone      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stockLevels   StockLevel[]
+  movementsFrom Movement[]   @relation("MovementFromLocation")
+  movementsTo   Movement[]   @relation("MovementToLocation")
+
+  @@map("locations")
+}
+
+/// On-hand quantity of one item at one location. The unique pair is what makes
+/// the atomic upsert / guarded decrement in MovementsService possible.
+model StockLevel {
+  id         String   @id @default(cuid())
+  itemId     String
+  locationId String
+  qty        Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  item     Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, locationId])
+  @@index([locationId])
+  @@map("stock_levels")
+}
+
+/// Append-only audit log. Every FK is Restrict so deleting an item, location or
+/// actor can never silently erase history — the service returns 400 instead.
+model Movement {
+  id        String       @id @default(cuid())
+  type      MovementType
+  itemId    String
+  /// Source location: required for OUT and TRANSFER, null for IN.
+  fromLocId String?
+  /// Destination location: required for IN and TRANSFER, null for OUT.
+  toLocId   String?
+  qty       Int
+  note      String?
+  userId    String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  item    Item      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  fromLoc Location? @relation("MovementFromLocation", fields: [fromLocId], references: [id], onDelete: Restrict)
+  toLoc   Location? @relation("MovementToLocation", fields: [toLocId], references: [id], onDelete: Restrict)
+  user    User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([itemId])
+  @@index([createdAt])
+  @@index([type])
+  @@index([userId])
+  @@index([itemId, createdAt])
+  @@map("movements")
+}
+
+/// Runtime override layer for service credentials. resolveConfig() reads the
+/// env var first and falls back to this table.
+model SystemSetting {
+  key       String   @id
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
 }

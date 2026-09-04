@@ -1,0 +1,9 @@
+{
+  "postgres": {
+    "host": "postgres-postgresql.colossus-inventory-04.svc.cluster.local",
+    "port": 5432,
+    "user": "postgres",
+    "password": "CyO0yU8vCNPp9L-aTsC1FPcM",
+    "database": "app"
+  }
+}
