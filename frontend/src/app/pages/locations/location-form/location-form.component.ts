@@ -1,8 +1,9 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
-import type { Location } from '../../../core/models';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { apiErrorMessage } from '../../../core/api.service';
+import { LocationsApi, type LocationPayload } from '../../../core/locations-api.service';
 
 /** Shared create/edit form behind /locations/new and /locations/:id/edit. */
 @Component({
@@ -16,13 +17,8 @@ import type { Location } from '../../../core/models';
 export class LocationFormComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-
-  /** Backend-owned data. Wired to GET /api/locations by the service layer. */
-  readonly locations = signal<Location[]>([
-    { id: 'loc_a', name: 'Zone A', zone: 'A' },
-    { id: 'loc_b', name: 'Zone B', zone: 'B' },
-    { id: 'loc_c', name: 'Zone C', zone: 'C' },
-  ]);
+  private readonly locationsApi = inject(LocationsApi);
+  private readonly destroyRef = inject(DestroyRef);
 
   private readonly params = toSignal(this.route.paramMap, { initialValue: this.route.snapshot.paramMap });
   readonly editingId = computed(() => this.params().get('id'));
@@ -32,34 +28,61 @@ export class LocationFormComponent {
   readonly name = signal('');
   readonly zone = signal('');
   readonly nameError = signal<string | null>(null);
+  readonly saving = signal(false);
   private hydratedFor: string | null = null;
 
   constructor() {
-    const id = this.editingId();
-    if (id && this.hydratedFor !== id) {
-      const location = this.locations().find((l) => l.id === id);
-      if (location) {
-        this.hydratedFor = id;
-        this.name.set(location.name);
-        this.zone.set(location.zone);
-      }
-    }
+    effect(() => {
+      const id = this.editingId();
+      if (id && this.hydratedFor !== id) this.hydrate(id);
+    });
+  }
+
+  /** Renaming touches no stock level and reassigns no movement history — the
+   *  server updates the row in place. */
+  private hydrate(id: string): void {
+    this.hydratedFor = id;
+    this.locationsApi
+      .get(id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (location) => {
+          this.name.set(location.name);
+          this.zone.set(location.zone);
+        },
+        error: (err: unknown) => this.nameError.set(apiErrorMessage(err)),
+      });
   }
 
   onSubmit(): void {
+    if (this.saving()) return;
     this.nameError.set(null);
+
     if (!this.name().trim()) {
       this.nameError.set('A location needs a name.');
       return;
     }
-    const clash = this.locations().find(
-      (l) => l.name.toLowerCase() === this.name().trim().toLowerCase() && l.id !== this.editingId(),
-    );
-    if (clash) {
-      this.nameError.set('A location with that name already exists');
+    if (!this.zone().trim()) {
+      this.nameError.set('A location needs a zone.');
       return;
     }
-    void this.router.navigate(['/locations']);
+
+    const payload: LocationPayload = { name: this.name().trim(), zone: this.zone().trim() };
+    const id = this.editingId();
+    const request = id ? this.locationsApi.update(id, payload) : this.locationsApi.create(payload);
+
+    this.saving.set(true);
+    request.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        this.saving.set(false);
+        void this.router.navigate(['/locations']);
+      },
+      error: (err: unknown) => {
+        this.saving.set(false);
+        // Duplicate names come back as 400 "A location with that name already exists".
+        this.nameError.set(apiErrorMessage(err));
+      },
+    });
   }
 
   cancel(): void {

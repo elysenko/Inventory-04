@@ -1,13 +1,15 @@
 import { inject } from '@angular/core';
-import type { CanActivateFn } from '@angular/router';
+import { Router, type CanActivateFn } from '@angular/router';
 import { AuthService } from './auth.service';
 
 /**
- * Guards authenticated routes. In the static preview a cold deep link seeds a
- * demo session instead of redirecting, so every screen stays reachable at its
- * own URL. It never redirects, which keeps it provably loop-free.
+ * Guards authenticated routes. Without a session the visitor is sent to /login
+ * with the URL they asked for in `returnUrl`, so the deep link is restored after
+ * signing in. /login carries no guard, so no redirect loop is possible.
  */
-export const authGuard: CanActivateFn = () => {
-  inject(AuthService).ensureSession();
-  return true;
+export const authGuard: CanActivateFn = (_route, state) => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  if (auth.isAuthenticated()) return true;
+  return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
 };

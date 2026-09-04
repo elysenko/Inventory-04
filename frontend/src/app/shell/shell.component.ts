@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs/operators';
 import { AuthService } from '../core/auth.service';
 
@@ -51,6 +52,15 @@ export class ShellComponent {
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
       .subscribe(() => this.drawerOpen.set(false));
+
+    // Re-reads the profile from GET /api/auth/me once the shell mounts. It keeps
+    // a role changed server-side in sync, and a token the API no longer accepts
+    // comes back 401 — which the interceptor turns into a clean sign-out instead
+    // of leaving manager-only nav on screen for a session that no longer exists.
+    this.auth
+      .refresh()
+      .pipe(takeUntilDestroyed())
+      .subscribe({ error: () => undefined });
   }
 
   toggleDrawer(): void {

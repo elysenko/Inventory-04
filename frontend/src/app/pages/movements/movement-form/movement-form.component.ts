@@ -1,8 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { apiErrorMessage } from '../../../core/api.service';
 import { AuthService } from '../../../core/auth.service';
+import { ItemsApi } from '../../../core/items-api.service';
+import { LocationsApi } from '../../../core/locations-api.service';
+import { MovementsApi, type CreateMovementPayload } from '../../../core/movements-api.service';
 import type { Item, Location, MovementType, StockLevel } from '../../../core/models';
 
 @Component({
@@ -16,40 +20,27 @@ import type { Item, Location, MovementType, StockLevel } from '../../../core/mod
 export class MovementFormComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly itemsApi = inject(ItemsApi);
+  private readonly locationsApi = inject(LocationsApi);
+  private readonly movementsApi = inject(MovementsApi);
+  private readonly destroyRef = inject(DestroyRef);
   readonly auth = inject(AuthService);
 
-  /** Backend-owned data. Wired to GET /api/items by the service layer. */
-  readonly items = signal<Item[]>([
-    { id: 'itm_1', sku: 'BLT-M8-50', name: 'Hex Bolt M8 × 50mm', unit: 'box', reorderAt: 40, totalQty: 18 },
-    { id: 'itm_2', sku: 'NUT-M8', name: 'Hex Nut M8', unit: 'box', reorderAt: 30, totalQty: 96 },
-    { id: 'itm_3', sku: 'WSH-M8', name: 'Flat Washer M8', unit: 'box', reorderAt: 25, totalQty: 24 },
-    { id: 'itm_4', sku: 'TAPE-DUCT-50', name: 'Duct Tape 50mm', unit: 'roll', reorderAt: 20, totalQty: 62 },
-    { id: 'itm_5', sku: 'GLV-NIT-L', name: 'Nitrile Gloves — Large', unit: 'box', reorderAt: 15, totalQty: 15 },
-    { id: 'itm_6', sku: 'PLT-EUR', name: 'Euro Pallet 1200 × 800', unit: 'each', reorderAt: 10, totalQty: 48 },
-    { id: 'itm_7', sku: 'STRP-16', name: 'Strapping Band 16mm', unit: 'roll', reorderAt: 12, totalQty: 7 },
-    { id: 'itm_8', sku: 'LBL-TH-4', name: 'Thermal Label 4in', unit: 'roll', reorderAt: 18, totalQty: 130 },
-  ]);
+  /** `GET /api/items` — populates the item select. */
+  readonly items = signal<Item[]>([]);
 
-  /** Backend-owned data. Wired to GET /api/locations by the service layer. */
-  readonly locations = signal<Location[]>([
-    { id: 'loc_a', name: 'Zone A', zone: 'A' },
-    { id: 'loc_b', name: 'Zone B', zone: 'B' },
-    { id: 'loc_c', name: 'Zone C', zone: 'C' },
-  ]);
+  /** `GET /api/locations` — clerk-readable, which is why this form works for both roles. */
+  readonly locations = signal<Location[]>([]);
 
-  /** Backend-owned data. Per-(item, location) balances used for the availability hint. */
-  readonly stockLevels = signal<StockLevel[]>([
-    { id: 'sl_1', itemId: 'itm_1', locationId: 'loc_a', qty: 12 },
-    { id: 'sl_2', itemId: 'itm_1', locationId: 'loc_b', qty: 6 },
-    { id: 'sl_3', itemId: 'itm_2', locationId: 'loc_a', qty: 60 },
-    { id: 'sl_4', itemId: 'itm_2', locationId: 'loc_c', qty: 36 },
-    { id: 'sl_5', itemId: 'itm_3', locationId: 'loc_a', qty: 24 },
-    { id: 'sl_6', itemId: 'itm_4', locationId: 'loc_b', qty: 62 },
-    { id: 'sl_7', itemId: 'itm_5', locationId: 'loc_a', qty: 15 },
-    { id: 'sl_8', itemId: 'itm_6', locationId: 'loc_c', qty: 48 },
-    { id: 'sl_9', itemId: 'itm_7', locationId: 'loc_b', qty: 7 },
-    { id: 'sl_10', itemId: 'itm_8', locationId: 'loc_a', qty: 130 },
-  ]);
+  /** `GET /api/items/:id` for the selected item: its per-location balances back the
+   *  availability hint and the "on hand" panel. Refreshed after every movement, so
+   *  the numbers on screen are the server's, not an optimistic guess. */
+  private readonly detail = signal<Item | null>(null);
+
+  readonly loading = signal(true);
+  readonly submitting = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly success = signal<string | null>(null);
 
   /** Type and item live in the URL so every variant of this form is deep-linkable. */
   private readonly params = toSignal(this.route.queryParamMap, { initialValue: this.route.snapshot.queryParamMap });
@@ -67,17 +58,22 @@ export class MovementFormComponent {
   readonly qty = signal(10);
   readonly note = signal('');
 
-  readonly error = signal<string | null>(null);
-  readonly success = signal<string | null>(null);
+  readonly stockLevels = computed<StockLevel[]>(() => this.detail()?.stockLevels ?? []);
 
-  readonly selectedItem = computed(() => this.items().find((i) => i.id === this.itemId()) ?? null);
+  readonly selectedItem = computed<Item | null>(() => {
+    const id = this.itemId();
+    const detail = this.detail();
+    if (detail && detail.id === id) return detail;
+    return this.items().find((i) => i.id === id) ?? null;
+  });
+
   readonly needsFrom = computed(() => this.type() === 'OUT' || this.type() === 'TRANSFER');
   readonly needsTo = computed(() => this.type() === 'IN' || this.type() === 'TRANSFER');
 
   /** Where the item is actually stocked, richest location first. */
   private readonly defaultFrom = computed(() => {
     const stocked = this.stockLevels()
-      .filter((s) => s.itemId === this.itemId() && s.qty > 0)
+      .filter((s) => s.qty > 0)
       .sort((a, b) => b.qty - a.qty);
     return stocked[0]?.locationId ?? this.locations()[0]?.id ?? '';
   });
@@ -87,14 +83,60 @@ export class MovementFormComponent {
     () => this.toOverride() ?? this.locations().find((l) => l.id !== this.fromLocId())?.id ?? '',
   );
 
-  readonly available = computed(() => this.balanceAt(this.itemId(), this.fromLocId()));
+  readonly available = computed(() => this.balanceAt(this.fromLocId()));
 
   readonly itemBreakdown = computed(() =>
-    this.locations().map((location) => ({ location, qty: this.balanceAt(this.itemId(), location.id) })),
+    this.locations().map((location) => ({ location, qty: this.balanceAt(location.id) })),
   );
 
-  private balanceAt(itemId: string, locationId: string): number {
-    return this.stockLevels().find((s) => s.itemId === itemId && s.locationId === locationId)?.qty ?? 0;
+  constructor() {
+    this.loadCatalog();
+
+    // Reload the balances whenever the selected item changes.
+    effect(() => {
+      const id = this.itemId();
+      if (id) this.loadDetail(id);
+    });
+  }
+
+  private loadCatalog(): void {
+    this.loading.set(true);
+    this.itemsApi
+      .list()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (items) => {
+          this.items.set(items);
+          this.loading.set(false);
+        },
+        error: (err: unknown) => {
+          this.error.set(apiErrorMessage(err));
+          this.loading.set(false);
+        },
+      });
+
+    this.locationsApi
+      .list()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (locations) => this.locations.set(locations),
+        error: (err: unknown) => this.error.set(apiErrorMessage(err)),
+      });
+  }
+
+  private loadDetail(itemId: string): void {
+    this.itemsApi
+      .get(itemId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (item) => this.detail.set(item),
+        // A missing breakdown only costs the hint; the server still enforces availability.
+        error: () => this.detail.set(null),
+      });
+  }
+
+  private balanceAt(locationId: string): number {
+    return this.stockLevels().find((s) => s.locationId === locationId)?.qty ?? 0;
   }
 
   setType(type: MovementType): void {
@@ -131,8 +173,14 @@ export class MovementFormComponent {
     });
   }
 
-  /** Mirrors the server-side DTO rules and the guarded decrement in one place. */
+  /**
+   * Mirrors the server-side DTO rules so obvious mistakes are caught without a
+   * round-trip — but the authority is the API, which applies the balance change
+   * and the audit row in one transaction and refuses an issue that would drive a
+   * balance negative.
+   */
   onSubmit(): void {
+    if (this.submitting()) return;
     this.error.set(null);
     this.success.set(null);
 
@@ -157,24 +205,56 @@ export class MovementFormComponent {
       this.error.set('A transfer must move stock between two different locations.');
       return;
     }
-    if (this.needsFrom() && this.qty() > this.available()) {
-      this.error.set(
-        `Insufficient stock — only ${this.available()} ${item.unit} of ${item.sku} on hand at ${this.locationName(this.fromLocId())}. The balance is unchanged.`,
-      );
-      return;
-    }
 
-    this.success.set(this.describeResult(item.unit, item.sku));
-    this.note.set('');
+    const payload: CreateMovementPayload = {
+      type: this.type(),
+      itemId: item.id,
+      qty: this.qty(),
+      // The API rejects a source on an IN and a destination on an OUT, so only
+      // the endpoints this movement type owns are sent.
+      fromLocId: this.needsFrom() ? this.fromLocId() : undefined,
+      toLocId: this.needsTo() ? this.toLocId() : undefined,
+      note: this.note().trim() || undefined,
+    };
+
+    const availableBefore = this.available();
+    this.submitting.set(true);
+    this.movementsApi
+      .create(payload)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.submitting.set(false);
+          this.success.set(this.describeResult(item.unit, item.sku, availableBefore));
+          this.note.set('');
+          // Re-read the balances the server now holds.
+          this.loadDetail(item.id);
+          this.refreshItems();
+        },
+        error: (err: unknown) => {
+          this.submitting.set(false);
+          // e.g. "Insufficient stock" — the transaction rolled back, so the
+          // balance is unchanged and the log recorded nothing.
+          this.error.set(apiErrorMessage(err));
+          this.loadDetail(item.id);
+        },
+      });
   }
 
-  private describeResult(unit: string, sku: string): string {
+  private refreshItems(): void {
+    this.itemsApi
+      .list()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ next: (items) => this.items.set(items), error: () => undefined });
+  }
+
+  private describeResult(unit: string, sku: string, availableBefore: number): string {
     const qty = this.qty();
     switch (this.type()) {
       case 'IN':
         return `Received ${qty} ${unit} of ${sku} into ${this.locationName(this.toLocId())}. The audit log records you as the actor.`;
       case 'OUT':
-        return `Issued ${qty} ${unit} of ${sku} from ${this.locationName(this.fromLocId())}. Balance now ${this.available() - qty}.`;
+        return `Issued ${qty} ${unit} of ${sku} from ${this.locationName(this.fromLocId())}. Balance now ${availableBefore - qty}.`;
       default:
         return `Transferred ${qty} ${unit} of ${sku} from ${this.locationName(this.fromLocId())} to ${this.locationName(this.toLocId())}. Total on hand is unchanged.`;
     }

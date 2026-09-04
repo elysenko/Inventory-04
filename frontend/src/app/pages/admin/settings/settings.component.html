@@ -21,7 +21,23 @@
     </div>
   }
 
+  @if (error()) {
+    <div class="alert alert--danger" role="alert" data-testid="settings-error">
+      <div>
+        <p class="alert__title">Settings could not be saved</p>
+        <p class="alert__body">{{ error() }}</p>
+      </div>
+    </div>
+  }
+
   <div class="stack">
+    @if (loading()) {
+      <section class="card">
+        <div class="card__body stack" aria-busy="true">
+          @for (row of [1, 2, 3]; track row) { <div class="skeleton"></div> }
+        </div>
+      </section>
+    }
     @for (service of services(); track service.service) {
       <section class="card">
         <div class="card__head">

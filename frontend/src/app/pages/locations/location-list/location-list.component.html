@@ -29,6 +29,15 @@
       <div class="card__body stack" aria-busy="true">
         @for (row of [1, 2, 3]; track row) { <div class="skeleton"></div> }
       </div>
+    } @else if (error()) {
+      <div class="card__body">
+        <div class="alert alert--danger" role="alert">
+          <div>
+            <p class="alert__title">Could not load locations</p>
+            <p class="alert__body">{{ error() }}</p>
+          </div>
+        </div>
+      </div>
     } @else if (locations().length === 0) {
       <div class="empty">
         <p class="empty__icon" aria-hidden="true">⌖</p>

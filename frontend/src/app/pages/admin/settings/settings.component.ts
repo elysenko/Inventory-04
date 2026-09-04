@@ -1,7 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { apiErrorMessage } from '../../../core/api.service';
+import { SettingsApi } from '../../../core/settings-api.service';
 import type { ServiceSettings } from '../../../core/models';
 
+/** Server-side sentinel for "this key exists but has not been configured yet". */
 const PLACEHOLDER = 'PLACEHOLDER_CONFIGURE_IN_SETTINGS';
 
 @Component({
@@ -13,38 +17,45 @@ const PLACEHOLDER = 'PLACEHOLDER_CONFIGURE_IN_SETTINGS';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SettingsComponent {
+  private readonly settingsApi = inject(SettingsApi);
+  private readonly destroyRef = inject(DestroyRef);
+
   readonly placeholder = PLACEHOLDER;
 
-  /** Backend-owned data. Wired to GET /api/admin/settings by the service layer. */
-  readonly services = signal<ServiceSettings[]>([
-    {
-      service: 'postgresql',
-      label: 'PostgreSQL',
-      description: 'Primary datastore holding items, locations, stock levels and the movement audit log.',
-      configured: true,
-      settings: [
-        { key: 'DATABASE_URL', value: '', maskedValue: 'postgresql://stockroom:••••••••@db:5432/stockroom', configured: true, updatedAt: '2026-09-01T09:12:00Z' },
-      ],
-    },
-    {
-      service: 'minio',
-      label: 'MinIO object storage',
-      description: 'Provisioned for future attachments such as delivery notes and photographs. No feature reads it yet.',
-      configured: false,
-      settings: [
-        { key: 'MINIO_ENDPOINT', value: '', maskedValue: PLACEHOLDER, configured: false },
-        { key: 'MINIO_ACCESS_KEY', value: '', maskedValue: PLACEHOLDER, configured: false },
-        { key: 'MINIO_SECRET_KEY', value: '', maskedValue: PLACEHOLDER, configured: false },
-        { key: 'MINIO_BUCKET', value: '', maskedValue: PLACEHOLDER, configured: false },
-      ],
-    },
-  ]);
+  /** `GET /api/admin/settings` — the provisioned services and a masked rendering
+   *  of each credential. The plaintext never leaves the server, so a saved secret
+   *  cannot be read back out through this screen. */
+  readonly services = signal<ServiceSettings[]>([]);
 
+  readonly loading = signal(true);
+  readonly error = signal<string | null>(null);
   readonly drafts = signal<Record<string, string>>({});
   readonly savedService = signal<string | null>(null);
+  readonly saving = signal<string | null>(null);
 
   readonly unconfigured = computed(() => this.services().filter((s) => !s.configured));
   readonly unconfiguredNames = computed(() => this.unconfigured().map((s) => s.label).join(', '));
+
+  constructor() {
+    this.load();
+  }
+
+  private load(): void {
+    this.loading.set(true);
+    this.settingsApi
+      .list()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (services) => {
+          this.services.set(services);
+          this.loading.set(false);
+        },
+        error: (err: unknown) => {
+          this.error.set(apiErrorMessage(err));
+          this.loading.set(false);
+        },
+      });
+  }
 
   draftFor(key: string): string {
     return this.drafts()[key] ?? '';
@@ -53,10 +64,46 @@ export class SettingsComponent {
   setDraft(key: string, value: string): void {
     this.drafts.update((current) => ({ ...current, [key]: value }));
     this.savedService.set(null);
+    this.error.set(null);
   }
 
+  /** Writes only the keys the admin actually typed into — an untouched field must
+   *  not overwrite a configured credential with an empty string. */
   save(service: ServiceSettings): void {
-    this.savedService.set(service.service);
+    if (this.saving()) return;
+
+    const values: Record<string, string> = {};
+    for (const setting of service.settings) {
+      const draft = this.drafts()[setting.key];
+      if (draft !== undefined && draft.trim() !== '') values[setting.key] = draft.trim();
+    }
+    if (Object.keys(values).length === 0) {
+      this.error.set(`Enter at least one ${service.label} value before saving.`);
+      return;
+    }
+
+    this.saving.set(service.service);
+    this.error.set(null);
+    this.settingsApi
+      .update(values)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.saving.set(null);
+          this.savedService.set(service.service);
+          // Clear the drafts for the saved keys and re-read the masked values.
+          this.drafts.update((current) => {
+            const next = { ...current };
+            for (const key of Object.keys(values)) delete next[key];
+            return next;
+          });
+          this.load();
+        },
+        error: (err: unknown) => {
+          this.saving.set(null);
+          this.error.set(apiErrorMessage(err));
+        },
+      });
   }
 
   isPlaceholder(masked: string): boolean {
